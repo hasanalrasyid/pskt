@@ -20,27 +20,27 @@ psNamespace = ProperName "PS"
 moduleNamespace :: ProperName Namespace
 moduleNamespace = ProperName "Module"
 
-pattern PrimModule = ModuleName [ProperName "PS", ProperName "Prim", ProperName "Module"]
+pattern PrimModule = ModuleName "PS.Prim.Module"
 
-pattern Semigroup = ModuleName [ProperName "PS", ProperName "Data", ProperName "Semigroup", ProperName "Module"]
-pattern Function = ModuleName [ ProperName "PS", ProperName "Data", ProperName "Function", ProperName "Module"] 
-pattern Semiring = ModuleName [ProperName "PS", ProperName "Data", ProperName "Semiring", ProperName "Module"]
-pattern Ring = ModuleName [ProperName "PS", ProperName "Data", ProperName "Ring", ProperName "Module"]
-pattern HeytingAlgebra = ModuleName [ProperName "PS", ProperName "Data", ProperName "HeytingAlgebra", ProperName "Module"]
+pattern Semigroup = ModuleName "PS.Data.Semigroup.Module"
+pattern Function = ModuleName "PS.Data.Function.Module"
+pattern Semiring = ModuleName "PS.Data.Semiring.Module"
+pattern Ring = ModuleName "PS.Data.Ring.Module"
+pattern HeytingAlgebra = ModuleName "PS.Data.HeytingAlgebra.Module"
 
-pattern Applicative = ModuleName [ProperName "PS", ProperName "Control", ProperName "Applicative", ProperName "Module"]
+pattern Applicative = ModuleName "PS.Control.Applicative.Module"
 
-pattern Effect = ModuleName [ProperName "PS", ProperName "Effect", ProperName "Module"]
-pattern Bind = ModuleName [ProperName "PS", ProperName "Control", ProperName "Bind", ProperName "Module"]
+pattern Effect = ModuleName "PS.Effect.Module"
+pattern Bind = ModuleName "PS.Control.Bind.Module"
 
-pattern STInternal = ModuleName [ProperName "PS", ProperName "Control", ProperName "Monad", ProperName "ST", ProperName "Internal", ProperName "Module" ]
+pattern STInternal = ModuleName "PS.Control.Monad.ST.Internal.Module"
 
 isReserved :: Text -> Bool
 isReserved = (`elem` allReserved)
 
 allReserved = hardKeywords ++ softKeywords ++ modifierKeywords ++ specialIdentifier
 
-hardKeywords = 
+hardKeywords =
   [ "as"
   , "as?"
   , "break"

@@ -66,7 +66,7 @@ forMLitKey (ArrayLiteral ls) f _ = do
     return $ ArrayLiteral ls'
 forMLitKey (ObjectLiteral ls) _ g = do
     ls' <- mapM (\entry -> (fst entry,) <$> uncurry g entry) ls
-    return $ ObjectLiteral ls' 
+    return $ ObjectLiteral ls'
 forMLitKey (NumericLiteral a) _ _ = return $ NumericLiteral a
 forMLitKey (StringLiteral a) _ _ = return $ StringLiteral a
 forMLitKey (CharLiteral a) _ _ = return $ CharLiteral a
@@ -120,8 +120,8 @@ freshText hint = (("_" <> hint) <>) . T.pack . show <$> fresh
 
 unreserve :: Text -> Text
 unreserve = renameUnused
-  >>> prefixUnderscore 
-  >>> escapeReserved 
+  >>> prefixUnderscore
+  >>> escapeReserved
   >>> T.concatMap escapeSpecialChars
   where
     renameUnused "$__unused" = "__unused"
@@ -157,7 +157,10 @@ qualifiedToKt f (Qualified mModName a) = do
   res <- f a
   return $ Qualified (go <$> mModName) res
   where
-      go (ModuleName ls) = ModuleName $ psNamespace : ls ++ [moduleNamespace]
+    go (ModuleName ls) =
+      let (ProperName psN) = psNamespace
+          (ProperName mN ) = moduleNamespace
+       in ModuleName $ T.intercalate "." $ psN : ls : [mN]
 
 qualifiedIdentToKt :: MonadSupply m => Qualified Ident -> m KtExpr
 qualifiedIdentToKt qualIdent = VarRef <$> qualifiedToKt ktIdentFromIdent qualIdent

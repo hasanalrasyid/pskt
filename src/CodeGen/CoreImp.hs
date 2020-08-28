@@ -61,21 +61,22 @@ moduleToKt mod = sequence
    ]
    where
       packageDecl :: ModuleName -> KtExpr
-      packageDecl (ModuleName mn) = Package $ psNamespace : mn
+      packageDecl (ModuleName mn) = let (ProperName psN) = psNamespace
+                                     in Package $ [ ProperName $ psN <> (T.pack ".") <> mn ]
 
       moduleToObject :: MonadSupply m => Module Ann -> m KtExpr
       moduleToObject mod = do
          let (normalDecls, classDecls) = splitDeclarations (moduleDecls mod)
          foreigns <- foreignToKt `mapM` moduleForeign mod
          decls <- mapM classDeclsToKt classDecls
-         body <- mapM (bindToKt ktJvmValue) normalDecls 
+         body <- mapM (bindToKt ktJvmValue) normalDecls
          let objectName = MkKtIdent "Module"
          return $ ObjectDecl (Just objectName) [] $ Stmt $ foreigns ++ concat decls ++ concatMap (\(normalDefs, _, recDefs) -> normalDefs ++ recDefs) body
 
       foreignToKt :: MonadSupply m => Ident -> m KtExpr
       foreignToKt ident = do
          ktIdent <- ktIdentFromIdent ident
-         let foreignModule = let (ModuleName pns) = moduleName mod in ModuleName $ ProperName "Foreign" : pns
+         let foreignModule = let (ModuleName pns) = moduleName mod in ModuleName $ (T.pack "Foreign") <> T.pack "." <> pns
          pure $ VariableIntroduction ktIdent $ VarRef (Qualified (Just foreignModule) ktIdent)
 
       classDeclsToKt :: MonadSupply m => DataTypeDecl -> m [KtExpr]
@@ -88,7 +89,7 @@ moduleToKt mod = sequence
       ctorToKt :: MonadSupply m => KtExpr -> DataCtorDecl -> m (KtExpr, KtExpr)
       ctorToKt parentName (DataCtorDecl ctorName param) = do
          let parentRef = Call parentName []
-         ktParam <- mapM ktIdentFromIdent param 
+         ktParam <- mapM ktIdentFromIdent param
          ktName <- identFromCtorName ctorName
          return $
             case param of
@@ -96,17 +97,17 @@ moduleToKt mod = sequence
                   ( ObjectDecl (Just ktName) [parentRef] (Stmt [])
                   , VariableIntroduction ktName (Property parentName (varRefUnqual ktName))
                   )
-               _ -> 
+               _ ->
                   ( ClassDecl [Data] ktName ktParam [parentRef] (Stmt [])
                   , VariableIntroduction ktName (lambdaFor ktName [] ktParam)
                   )
-         where 
+         where
             lambdaFor ktName ktParam [] = Call (Property parentName (varRefUnqual ktName)) (varRefUnqual <$> ktParam)
             lambdaFor ktName ktParam (l:ls) = Lambda l (lambdaFor ktName (ktParam ++ [l]) ls)
 
       splitDeclarations :: [Bind Ann] -> ([Bind Ann], [DataTypeDecl])
       splitDeclarations binds = (normalBind, typeDecls)
-         where 
+         where
             (normalBind, ctorBind) = partition (isNothing . getTypeName) binds
             getTypeName (NonRec _ _ (Constructor _ tyName _ _)) = Just tyName
             getTypeName _ = Nothing
@@ -134,8 +135,8 @@ moduleToKt mod = sequence
             replaceRecNames replacements expr = foldr replaceRecName expr replacements
             replaceRecName :: (KtIdent, KtIdent) -> KtExpr -> KtExpr
             replaceRecName (original, new) = cata alg where
-               alg (VarRefF (Qualified modName' name)) 
-                  | (name == original) && maybe True (== moduleName mod) modName' = 
+               alg (VarRefF (Qualified modName' name))
+                  | (name == original) && maybe True (== moduleName mod) modName' =
                      Call (varRefUnqual new) []
                alg a = embed a
             go :: MonadSupply m => ((a, Ident), Expr Ann) -> m ((KtIdent, KtExpr), (KtIdent, KtExpr)) -- ((normalName, normalVal), (recName, recValue))
@@ -153,7 +154,7 @@ moduleToKt mod = sequence
 
       exprToKt :: MonadSupply m => Expr Ann -> m KtExpr
       exprToKt (Var _ qualIdent) = qualifiedIdentToKt qualIdent
-      exprToKt (Abs _ arg body) = do 
+      exprToKt (Abs _ arg body) = do
          ktArg <- ktIdentFromIdent arg
          ktBody <- exprToKt body
          return $ Lambda ktArg ktBody
@@ -167,14 +168,14 @@ moduleToKt mod = sequence
          ktObj <- exprToKt obj
          return $ ObjectAccess (ktAsMap ktObj) (ktString key)
       exprToKt (Let _ binds body) = do
-         ktBinds <- mapM (bindToKt identity) binds 
+         ktBinds <- mapM (bindToKt identity) binds
          let normalBinds = concatMap (\(normalBind, _, _) -> normalBind) ktBinds
          let normalRefs = concatMap (\(_, normalName, _) -> normalName) ktBinds
          let recBinds = concatMap (\(_, _, recBind) -> recBind) ktBinds
          ktBody <- exprToKt body
          let ktObj = ObjectDecl Nothing [] $ Stmt (normalBinds ++ recBinds)
-         return $ Call (Property ktObj (varRefUnqual $ MkKtIdent "run")) 
-            [ Stmt $ 
+         return $ Call (Property ktObj (varRefUnqual $ MkKtIdent "run"))
+            [ Stmt $
                ((\normalRef -> VariableIntroduction normalRef $ Property (varRefUnqual $ MkKtIdent "this") (varRefUnqual normalRef)) <$> normalRefs)
                ++ [ktBody]
             ]--(ktStmt $ ktBinds ++ [ktBody]) [] -- TODO: limit to situations where wrapping in call is necessary
@@ -183,7 +184,7 @@ moduleToKt mod = sequence
          ktUpdateLiteral <- Const <$> forMLiteral (ObjectLiteral updates) exprToKt
          pure $ Binary Add (ktAsMap ktRef) ktUpdateLiteral
       exprToKt a = pTraceShow a undefined
-      
+
       caseToKt :: MonadSupply m => [Expr Ann] -> CaseAlternative Ann -> m [WhenCase KtExpr]
       caseToKt compareVals (CaseAlternative binders caseResult) = do
          ktCompareVals <- mapM exprToKt compareVals
@@ -194,7 +195,7 @@ moduleToKt mod = sequence
                ktBody <- exprToKt result
                pure [WhenCase (concat guards) (Stmt $ assignments ++ [ktBody])]
             (Left guardedExpr) -> traverse genGuard guardedExpr
-               where 
+               where
                   genGuard (cond, val) = do
                      ktCond <- KtAsBool . replaceBindersWithReferences (concat replacements) <$> exprToKt cond
                      ktVal <- exprToKt val
@@ -209,7 +210,7 @@ moduleToKt mod = sequence
       binderToKt :: MonadSupply m => KtExpr -> Binder Ann -> m ([KtExpr], [Replacement]) -- ([binder], [{identToReplace, exprThatReplacesIt}])
       binderToKt compareVal (VarBinder _ ident) = do
          ktIdent <- ktIdentFromIdent ident
-         pure 
+         pure
             ( []
             , [Replacement ktIdent compareVal]
             )
@@ -217,14 +218,14 @@ moduleToKt mod = sequence
          literalValue <- forMLitKey literal
             (binderToKt . ArrayAccess compareVal . ktInt)
             (binderToKt . ObjectAccess compareVal . ktString)
-         pure 
+         pure
             ( specificGuard literal : fold (fst <$> literalValue)
             , fold (snd <$> literalValue)
             )
          where
-            specificGuard (ArrayLiteral a) = 
+            specificGuard (ArrayLiteral a) =
                Binary Equals (getLength compareVal) (ktInt $ fromIntegral $ length a)
-            specificGuard (ObjectLiteral a) = 
+            specificGuard (ObjectLiteral a) =
                Binary NotEquals (ktAsMap compareVal) (varRefUnqual $ MkKtIdent "null")
             specificGuard (NumericLiteral a) = Binary Equals compareVal $ Const $ NumericLiteral a
             specificGuard (StringLiteral a) = Binary Equals compareVal $ Const $ StringLiteral a
@@ -241,7 +242,7 @@ moduleToKt mod = sequence
             , concat $ snd <$> subBindersExprs
             )
       binderToKt compareVal (ConstructorBinder (_, _, _, Just IsNewtype) tyName ctorName [subBinder]) = do
-         (guards, stmts) <- binderToKt compareVal subBinder 
+         (guards, stmts) <- binderToKt compareVal subBinder
          pure
             ( guards
             , stmts
@@ -249,7 +250,7 @@ moduleToKt mod = sequence
       binderToKt compareVal (NamedBinder _ ident subBinder) = do
          ktIdent <- ktIdentFromIdent ident
          (guards, replacements) <- binderToKt compareVal subBinder
-         pure 
+         pure
             ( guards
             , Replacement ktIdent compareVal : replacements
             )
