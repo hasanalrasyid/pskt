@@ -13,21 +13,21 @@ system' cmd = do
     ExitSuccess -> return ()
     _ -> exitWith code
 
-withDefaultPath cmd = 
-  system' $ "bash -c 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; export PATH; "<> cmd <>"'"
+withDefaultPath cmd =
+  system' $ "bash -c 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH; export PATH; "<> cmd <>"'"
 
 foreignsDirectory = "./foreigns"
 foreignsDirectoryGlobal = "./test/foreigns"
 
 spec :: Spec
-spec = 
+spec =
   describe "intergration test" $
     it "compile" $ do
       withDefaultPath "whereis purs"
       foreignsExists <- doesDirectoryExist foreignsDirectoryGlobal
       if foreignsExists then
         withCurrentDirectory foreignsDirectoryGlobal $ void $ system "git pull"
-      else 
+      else
         system' $ "git clone https://github.com/csicar/pskt-foreigns " <> foreignsDirectoryGlobal
       withCurrentDirectory "./test" $ do
         system "rm -r output"
@@ -45,5 +45,5 @@ spec =
         putStrLn stdout
         expectedOutput <- readFile "./src/Main.txt"
         expectedOutput `shouldBe` stdout
-        
+
 main = hspec spec

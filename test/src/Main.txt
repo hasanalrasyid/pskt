@@ -1,5 +1,4 @@
 test unicode:
-start 😁 😂 🤣 😃 😄 😅 end $ ' "
 test recursion:
 3628800
 [12,2,3,2]

@@ -67,7 +67,6 @@ testDestructure2 {a, b} = a + b
 
 main = do
   log "test unicode:"
-  log "start 😁 😂 🤣 😃 😄 😅 end $ ' \""
   log "test recursion:"
   logShow $ fac 10
   logShow f
